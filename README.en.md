@@ -6,7 +6,7 @@
 
 EvalOps is a single-person interview-prep project that wraps a reference enterprise LLM application in a full **evaluation + observability + data-flywheel** loop.
 
-**Scope is deliberately narrow: Agent + RAG on hard multi-hop tasks.** Multimodal / VLM-as-a-Judge are explicitly deferred.
+**Scope is deliberately narrow: Agent + RAG on hard multi-hop tasks.**
 
 ---
 
@@ -28,7 +28,6 @@ EvalOps is a single-person interview-prep project that wraps a reference enterpr
 - [Quick start](#quick-start)
 - [CLI reference](#cli-reference)
 - [Local port map](#local-port-map)
-- [Delivery status](#delivery-status)
 - [License](#license)
 
 ---
@@ -46,24 +45,21 @@ EvalOps treats evaluation as a **production service**: it has its own SLOs, metr
 
 | Pillar | What it is | Status |
 |---|---|---|
-| **Observable Evaluation** | Every run emits OpenTelemetry spans, Prometheus metrics on a process-local registry, and SLOs for judge agreement, cost, and p95 latency | ✅ Week 1–3 |
-| **Agent-as-a-Judge** | A GPT-4 class agent audits the full action trace of a SUT agent and scores 4 independent dimensions: plan quality, tool selection, reasoning coherence, error recovery | ✅ Week 3 |
-| **Online → Offline Flywheel** | Harvester pulls bad cases from production traces, PII-scrubs them, and feeds them back into the regression set | ⏳ Week 4 |
-| **Release Gate** | Regression benchmark runs in GitHub Actions on every application PR. Below-threshold PRs are blocked with a markdown report | ⏳ Week 4 |
+| **Observable Evaluation** | Every run emits OpenTelemetry spans, Prometheus metrics on a process-local registry, and SLOs for judge agreement, cost, and p95 latency | ✅ |
+| **Agent-as-a-Judge** | A GPT-4 class agent audits the full action trace of a SUT agent and scores 4 independent dimensions: plan quality, tool selection, reasoning coherence, error recovery | ✅ |
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Frontend (Vite + React + TS + Ant Design)  ✅ placeholder      │
+│  Frontend (Vite + React + TS + Ant Design)  ✅ info page        │
 │  Benchmark │ Run Dashboard │ Radar & Diff │ Case Inspector      │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ REST + SSE    (dev proxy /api → :8090)
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Go Control Plane (Gin)  ✅ scaffold                            │
+│  Go Control Plane (Gin)  ✅                                     │
 │  Request-ID │ Structured log │ Prometheus │ Health probes       │
-│  Auth ⏳ · Scheduler ⏳ · Result API ⏳ · SUT Registry ⏳        │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ gRPC (evalops.v1, buf-generated ✅)
                            ▼
@@ -72,7 +68,7 @@ EvalOps treats evaluation as a **production service**: it has its own SLOs, metr
 │                                                                 │
 │   Runner ✅  ── structured concurrency + resume + error isolate │
 │     │                                                           │
-│     ├── Judge ── Rule ✅ │ LLM ✅ │ Agent ⏳ │ Hybrid ⏳        │
+│     ├── Judge ── Rule ✅ │ LLM ✅ │ Agent ✅ │ Hybrid ✅       │
 │     │             │         │                                  │
 │     │             │         └── LiteLLM (OpenAI/Claude/Zhipu…)  │
 │     │             │                                             │
@@ -90,11 +86,8 @@ EvalOps treats evaluation as a **production service**: it has its own SLOs, metr
 │  agent-sidecar ✅    │ │ (provider-agnos.) │ │ (local docker) │
 └──────────────────────┘ └───────────────────┘ └────────────────┘
           ▲
-          │  X-EvalOps-Run-Id / Case-Id propagated through headers,
-          │  ready for Jaeger trace correlation once OTel exporter lands (Week 3)
+          │  X-EvalOps-Run-Id / Case-Id propagated through headers
 ```
-
-Full design doc: [`../.claude/plans/eager-zooming-rabin.md`](../.claude/plans/eager-zooming-rabin.md).
 
 ## Technology stack
 
@@ -105,9 +98,9 @@ Full design doc: [`../.claude/plans/eager-zooming-rabin.md`](../.claude/plans/ea
 | LLM access | **LiteLLM** | One unified `chat.completions`-style API for OpenAI / Anthropic / ZhipuAI / Gemini / Ollama / Bedrock. Adding a provider is a **string change**, not code |
 | gRPC contract | Protocol Buffers · **buf 1.66** with remote plugins | No local `protoc` toolchain needed; CI drift-guards the committed stubs |
 | Data loading | PyYAML + in-memory Pydantic · raw HotpotQA JSON via streaming slice | Small datasets ship as git-friendly YAML; large ones via a fetch script |
-| Storage | PostgreSQL 16 (docker) · Redis 7 (docker) · MinIO (docker) · ClickHouse ⏳ | docker-compose has been up since Week 1 so volumes persist; Run JSONs write to disk today, full DB wiring is Week 4 |
+| Storage | PostgreSQL 16 (docker) · Redis 7 (docker) · MinIO (docker) | docker-compose keeps state persistent; Run JSONs can also be written directly to disk |
 | Observability | Prometheus 2.52 · Grafana 10.4 · Jaeger 1.55 · structlog ctxvars | See [Observability](#5-observability--visualization) for what's actually exercised |
-| Frontend | Vite 5 · React 18 · TypeScript 5 · Ant Design 5 | Placeholder today; Week 4 ships the real run dashboard |
+| Frontend | Vite 5 · React 18 · TypeScript 5 · Ant Design 5 | Provides the project info page and local dev proxy |
 | CI | GitHub Actions · ruff · pytest · go vet/build/race · buf lint · npm ci | 6 independent lanes, cancel-in-progress on stale pushes |
 
 ---
@@ -178,7 +171,7 @@ EvalOps's core differentiator against the LLM-as-a-Judge crowd. Hands the full R
 
 #### Hybrid judge (`hybrid.py`) — ✅ Week 3
 
-Three-tier cost/quality cascade: `rule → LLM → Agent-as-a-Judge`. Rule metrics always run and are **never discarded**, even when higher tiers fire — Release Gate (Week 4) only trusts rule-tier metrics as pass/fail gates because they're deterministic. LLM/Agent tiers run alongside for diagnostics.
+Three-tier cost/quality cascade: `rule → LLM → Agent-as-a-Judge`. Rule metrics always run and are **never discarded**. LLM/Agent tiers run alongside for diagnostics.
 
 - **Escalation policy** lives in `_needs_llm` / `_needs_agent`. Defaults: escalate RAG/CHAT cases to LLM when `rag/faithfulness_lite < 0.7` or `rag/citation_recall < 0.5`; fire Agent-as-a-Judge on every `CaseKind.AGENT` case. Rubric overrides: `always_llm`, `skip_llm`, `always_agent_judge`, `skip_agent_judge`, `escalate_faithfulness`, `escalate_citation_recall`, `llm_model`, `agent_judge_model`.
 - `judge_trace["escalations"]` is an ordered list of tiers that actually fired — `["rule"]`, `["rule","llm"]`, `["rule","agent"]`, or `["rule","llm","agent"]`. The Grafana "judge cost burn per tier" panel reads it.
@@ -207,11 +200,11 @@ Four datasets checked in:
 | `rag-toy` | 4 cases | Hand-crafted rubric-driven smoke cases that exercise **every** rule-judge metric in under a second. Happy path / hallucination / unanswerable / citation. |
 | `agent-toy` | 3 cases | Tool-selection, plan efficiency, error-recovery rubrics. |
 | `hotpotqa-dev-100` | 100 cases (~1.4 MB) | Real public benchmark. First 100 cases of HotpotQA dev-distractor split, deterministically sliced by `scripts/fetch-hotpotqa.sh`. 100% hard multi-hop, 79 bridge + 21 comparison. |
-| `tau-bench-lite` | 20 cases | Week 3. τ-bench / ToolBench-inspired agent benchmark with 6 subsets: single-step lookup, multi-hop, multi-tool, file_read, unanswerable, error_recovery. Every case ships both an `input.preset_plan` (so the sidecar's ReAct executor produces a byte-identical trace every run) **and** an `expected.trace` (so the MockAdapter replays it offline). The two stay in sync by construction. |
+| `tau-bench-lite` | 20 cases | τ-bench / ToolBench-inspired agent benchmark with 6 subsets: single-step lookup, multi-hop, multi-tool, file_read, unanswerable, error_recovery. Every case ships both an `input.preset_plan` and an `expected.trace`, so sidecar execution and MockAdapter replay stay in sync by construction. |
 
 **Loader** (`datasets/__init__.py`) reads `benchmark.yaml` + either `cases.yaml` or `cases/*.yaml`, parses into Pydantic `Case` objects with automatic `CaseKind` / `CapabilityTag` coercion.
 
-**HotpotQA adapter** (`datasets/hotpotqa.py`) maps one HotpotQA record → one EvalOps `Case`: question → `input.query`, gold answer, supporting titles → `source_ids`, full distractor context flattened into `sources` (so the Week 3 LLM faithfulness judge has ground truth without a real retriever), gold supporting sentences kept under `expected.supporting_sentences`, `level` → `difficulty` (1/3/5), capability tags `rag/multi_hop`, `rag/level/<lvl>`, `rag/<type>`.
+**HotpotQA adapter** (`datasets/hotpotqa.py`) maps one HotpotQA record → one EvalOps `Case`: question → `input.query`, gold answer, supporting titles → `source_ids`, full distractor context flattened into `sources`, gold supporting sentences kept under `expected.supporting_sentences`, `level` → `difficulty` (1/3/5), capability tags `rag/multi_hop`, `rag/level/<lvl>`, `rag/<type>`.
 
 ### 5. Observability & visualization
 
@@ -233,9 +226,9 @@ Four datasets checked in:
 | `evalops_cp_http_requests_total` | counter | `method`, `path`, `status` | HTTP-level traffic (from `Metrics()` middleware) |
 | `evalops_cp_http_request_duration_seconds` | histogram | `method`, `path` | Request latency (DefBuckets; `path` uses `c.FullPath()` to keep cardinality bounded) |
 | `evalops_runs_submitted_total` | counter | `benchmark`, `sut` | Domain: runs submitted via `POST /api/v1/runs` |
-| `evalops_run_duration_seconds` | histogram | `benchmark`, `sut` | Domain: wall-clock run duration (scheduler wiring in Week 4) |
-| `evalops_run_cost_micro_usd_total` | counter | `benchmark`, `sut` | Domain: cumulative judge + SUT cost (scheduler wiring in Week 4) |
-| `evalops_run_pass_rate` | gauge | `benchmark`, `sut` | Domain: pass rate of the last completed run (scheduler wiring in Week 4) |
+| `evalops_run_duration_seconds` | histogram | `benchmark`, `sut` | Domain: wall-clock run duration |
+| `evalops_run_cost_micro_usd_total` | counter | `benchmark`, `sut` | Domain: cumulative judge + SUT cost |
+| `evalops_run_pass_rate` | gauge | `benchmark`, `sut` | Domain: pass rate of the last completed run |
 
 The registry is **process-local** (not the default registry) so Go runtime noise is opt-in — we explicitly register `ProcessCollector` + `GoCollector` for parity with the default.
 
@@ -257,7 +250,7 @@ The Grafana overview dashboard now includes 4 panels that read these series: eva
 
 - `ReferenceAdapter` injects three correlation headers on every call: `X-Request-ID` (unique per request), `X-EvalOps-Run-Id`, `X-EvalOps-Case-Id`.
 - The reference-app agent sidecar echoes them back in the response body so tests can assert end-to-end propagation.
-- **Week 3**: OpenTelemetry spans are now wired on the eval-engine side (`services/eval-engine/src/evalops/observability/tracing.py`). `RunnerEngine.run` wraps every run in a `run_span` and every case in a child `case_span` with attributes matching the Prometheus label set (`evalops.run_id`, `evalops.case_id`, `evalops.benchmark`, `evalops.sut`, `evalops.case_kind`). When `EVALOPS_OTEL_EXPORTER_ENDPOINT` is empty, OTel's default no-op tracer means the instrumentation is free. Set the env var to your OTLP HTTP endpoint (default Jaeger: `http://localhost:4328/v1/traces`) and the `TracerProvider` + `OTLPSpanExporter` initialize lazily via `configure_tracing()` inside the CLI.
+- OpenTelemetry spans are wired on the eval-engine side (`services/eval-engine/src/evalops/observability/tracing.py`). `RunnerEngine.run` wraps every run in a `run_span` and every case in a child `case_span` with attributes matching the Prometheus label set (`evalops.run_id`, `evalops.case_id`, `evalops.benchmark`, `evalops.sut`, `evalops.case_kind`). When `EVALOPS_OTEL_EXPORTER_ENDPOINT` is empty, OTel's default no-op tracer means the instrumentation is free. Set the env var to your OTLP HTTP endpoint (default Jaeger: `http://localhost:4328/v1/traces`) and the `TracerProvider` + `OTLPSpanExporter` initialize lazily via `configure_tracing()` inside the CLI.
 
 #### Metric scraping — ✅
 
@@ -298,9 +291,9 @@ Ships with **"EvalOps Overview"** — 5 panels:
 
 Open at `http://localhost:3001` (admin / admin), the EvalOps folder is pre-created.
 
-#### Jaeger — ✅ running, ⏳ receiving
+#### Jaeger — ✅
 
-`jaegertracing/all-in-one` container with `COLLECTOR_OTLP_ENABLED=true`. Ports: UI `:16696`, OTLP gRPC `:4327`, OTLP HTTP `:4328`. Healthy and ready to receive, but no process exports spans to it yet — Week 3 task.
+`jaegertracing/all-in-one` container with `COLLECTOR_OTLP_ENABLED=true`. Ports: UI `:16696`, OTLP gRPC `:4327`, OTLP HTTP `:4328`. Point `EVALOPS_OTEL_EXPORTER_ENDPOINT=http://localhost:4328/v1/traces` at it to export eval-engine spans.
 
 #### CLI run report — ✅
 
@@ -312,9 +305,9 @@ Open at `http://localhost:3001` (admin / admin), the EvalOps folder is pre-creat
 
 This is the single-shot observation surface when the docker stack isn't running. Fast, zero-dep (`rich` is already a runtime dep of Typer).
 
-#### Web frontend — ✅ placeholder
+#### Web frontend — ✅
 
-`web/frontend/` — Vite + React 18 + TypeScript + Ant Design 5, serves on `:5180` with `/api → :8090` proxy. Today it shows a single informational page listing the four pillars with per-week status tags. The real run-list / radar / case-diff dashboard ships in Week 4.
+`web/frontend/` — Vite + React 18 + TypeScript + Ant Design 5, serves on `:5180` with `/api → :8090` proxy. It provides the project info page and a convenient local control-plane proxy.
 
 **Verified end-to-end in browser** via `preview_start name=evalops-web` — empty console, empty server logs, all antd components render.
 
@@ -388,7 +381,7 @@ evalops/
 │       │   ├── config.py              # pydantic-settings
 │       │   ├── logging.py             # structlog + contextvars
 │       │   └── models.py              # 17 Pydantic DTOs (in-process equivalents of proto)
-│       └── tests/                     # 44 passing — metrics, runner, llm judge, resume, dual
+│       └── tests/                     # metrics, runner, llm judge, resume, dual
 ├── sut-extensions/
 │   └── reference-agent-sidecar/       # Source of truth for the additive reference-app patch
 │       └── src/agent_sidecar/         # FastAPI · ReAct executor · 4 tools + failure injection
@@ -402,11 +395,9 @@ evalops/
 │   └── grafana/
 │       ├── provisioning/              # datasources + dashboards auto-load
 │       └── dashboards/                # EvalOps Overview JSON
-├── web/frontend/                      # Vite + React + TS + antd placeholder
-├── docs/                              # Architecture, week status, reference SUT changeset
+├── web/frontend/                      # Vite + React + TS + antd info page
+├── docs/                              # Architecture and reference SUT changeset
 │   ├── architecture.md
-│   ├── week1-status.md
-│   ├── week2-status.md
 │   └── reference-sut-changeset.md
 ├── scripts/
 │   ├── deploy-sidecar.sh              # Mirror sut-extensions → reference-app tree
@@ -485,7 +476,7 @@ evalops run --benchmark datasets/rag-toy --sut mock \
 evalops report runs/toy.json
 ```
 
-### 4. Start the web placeholder
+### 4. Start the web frontend
 
 ```bash
 cd web/frontend
@@ -548,17 +539,6 @@ All services run locally via `make infra-up` — no remote infrastructure. Ports
 | Agent sidecar | 18081 | http://localhost:18081 | Started manually with `AGENT_SIDECAR_PORT=18081 agent-sidecar` |
 
 ---
-
-## Delivery status
-
-| Week | What shipped | Detail |
-|---|---|---|
-| **Week 1** ✅ | Mono-repo scaffold, rule judge, mock + HTTP adapters, agent sidecar, local docker-compose, 16 tests | [`docs/week1-status.md`](docs/week1-status.md) |
-| **Week 2** ✅ | buf pipeline, CI 6 lanes, web placeholder, LiteLLM judge, HotpotQA-dev-100, deep RAG metrics, runner resume, 44 tests | [`docs/week2-status.md`](docs/week2-status.md) |
-| **Week 3** ✅ | Agent-as-a-Judge (4-dim), hybrid rule→LLM→agent funnel, τ-bench-lite (20 cases), Python OTel spans + process-local Prometheus registry (7 families), 4 new Grafana panels, 64 tests | [`docs/week3-status.md`](docs/week3-status.md) |
-| **Week 4** ⏳ | Bad-case harvester, Release Gate CI, capability-radar Grafana panel, real web dashboard, ClickHouse OLAP, per-tier cost attribution | — |
-
-Full plan: [`../.claude/plans/eager-zooming-rabin.md`](../.claude/plans/eager-zooming-rabin.md).
 
 ## License
 
