@@ -2,9 +2,9 @@
 
 > **English** | [简体中文](README.md)
 
-> **Enterprise-grade LLM evaluation platform with SRE DNA.** Turn evaluation from a one-off script into an always-on production service that drives a real data flywheel.
+> **Evaluate Agent and RAG workflows, produce metrics, traces, and regression artifacts, and plug the results into Prometheus, Grafana, and Jaeger.**
 
-EvalOps is a single-person interview-prep project that wraps a reference enterprise LLM application in a full **evaluation + observability + data-flywheel** loop.
+EvalOps runs Agent and RAG evaluation as one end-to-end loop: collect samples, execute tasks, call judges, capture metrics and traces, replay bad cases, and feed the results into observability systems.
 
 **Scope is deliberately narrow: Agent + RAG on hard multi-hop tasks.**
 
