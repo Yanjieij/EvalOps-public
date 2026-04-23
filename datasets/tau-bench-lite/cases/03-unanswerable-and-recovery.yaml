@@ -1,0 +1,195 @@
+# τ-bench-lite — unanswerable and error-recovery subset.
+#
+# The hardest cases for LLM-as-a-Judge alone: an Agent that forged
+# ahead with a bad tool pick would still produce a plausible answer
+# and fool a pure answer judge. The Agent-as-a-Judge trace auditor
+# catches them because the trace tells the truth.
+#
+# Unanswerable cases: rubric.expected_refusal=true. An Agent that
+# fabricates gets a low faithfulness score; one that refuses
+# explicitly is rewarded.
+#
+# Recovery cases: rubric.inject_failure=true. The expected.trace
+# contains a failed tool observation followed by a retry thought;
+# any Agent that skips the retry gets a low error_recovery score.
+
+- id: tbl-015-unanswerable-atlantis
+  kind: agent
+  difficulty: 3
+  source: adversarial
+  capability_tags:
+    - { path: "agent/unanswerable", weight: 1.0 }
+    - { path: "agent/faithfulness", weight: 1.0 }
+  input:
+    task: "What is the capital of Atlantis? If the knowledge base has no answer, refuse."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-geography", query: "Atlantis capital" }
+        thought: "Try the geography collection — though Atlantis is fictional."
+  expected:
+    final_answer: "I don't know based on the provided context."
+    trace:
+      - thought: "Try the geography collection — though Atlantis is fictional."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "Atlantis capital" }
+        observation: { answer: "", sources: [] }
+  rubric:
+    expected_refusal: true
+    primary_metric: "agent_judge/overall"
+    mock_mode: "refuse"
+
+- id: tbl-016-unanswerable-python4
+  kind: agent
+  difficulty: 3
+  source: adversarial
+  capability_tags:
+    - { path: "agent/unanswerable", weight: 1.0 }
+    - { path: "agent/faithfulness", weight: 1.0 }
+  input:
+    task: "When will Python 4 be released?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "mock_web_search"
+        args: { query: "python 4 release date" }
+        thought: "Release date info is a web-search lookup."
+  expected:
+    final_answer: "Python 4 has not been released."
+    trace:
+      - thought: "Release date info is a web-search lookup."
+        tool: "mock_web_search"
+        args: { query: "python 4 release date" }
+        observation:
+          results:
+            - { title: "python 4 release", snippet: "Python 4 has not been released." }
+  rubric:
+    expected_refusal: true
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-017-unanswerable-mars-pop
+  kind: agent
+  difficulty: 3
+  source: adversarial
+  capability_tags:
+    - { path: "agent/unanswerable", weight: 1.0 }
+    - { path: "agent/faithfulness", weight: 1.0 }
+  input:
+    task: "What is the current human population of Mars?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-astronomy", query: "Mars population" }
+        thought: "Check astronomy knowledge base before refusing."
+  expected:
+    final_answer: "I cannot determine the human population of Mars from the available tools."
+    trace:
+      - thought: "Check astronomy knowledge base before refusing."
+        tool: "rag_query"
+        args: { collection: "toy-astronomy", query: "Mars population" }
+        observation: { answer: "", sources: [] }
+  rubric:
+    expected_refusal: true
+    primary_metric: "agent_judge/overall"
+    mock_mode: "refuse"
+
+- id: tbl-018-recovery-bad-calc-then-fallback
+  kind: agent
+  difficulty: 4
+  source: adversarial
+  capability_tags:
+    - { path: "agent/error_recovery", weight: 1.5 }
+    - { path: "agent/plan_quality", weight: 1.0 }
+  input:
+    task: "Compute 2 + 2. Your first attempt may fail — retry with a different expression if needed."
+    max_steps: 4
+    tools: ["calc"]
+    preset_plan:
+      - tool: "calc"
+        args: { expression: "two plus two" }
+        thought: "First try expresses the problem in words."
+  expected:
+    final_answer: "4"
+    trace:
+      - thought: "First try expresses the problem in words."
+        tool: "calc"
+        args: { expression: "two plus two" }
+        observation: { error: "calc: disallowed syntax Name('two')" }
+      - thought: "Retry calc with a numeric expression after the error."
+        tool: "calc"
+        args: { expression: "2 + 2" }
+        observation: { result: 4 }
+  rubric:
+    # No fail_after_step — we want the mock adapter to replay the full
+    # two-step trace (error + recovery) so rule- and agent-tier judges
+    # both see the retry thought.
+    inject_failure: true
+    primary_metric: "agent_judge/error_recovery"
+    dimension_weights:
+      plan_quality: 1.0
+      tool_selection: 1.0
+      reasoning_coherence: 1.0
+      error_recovery: 2.0
+
+- id: tbl-019-recovery-rag-miss-then-websearch
+  kind: agent
+  difficulty: 4
+  source: adversarial
+  capability_tags:
+    - { path: "agent/error_recovery", weight: 1.5 }
+    - { path: "agent/tool_selection", weight: 1.0 }
+  input:
+    task: "What is today's weather in Paris? The knowledge base probably won't have it — fall back to web search if needed."
+    max_steps: 4
+    tools: ["rag_query", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-product", query: "Paris weather today" }
+        thought: "Try the knowledge base first."
+  expected:
+    final_answer: "Sunny, 18°C"
+    trace:
+      - thought: "Try the knowledge base first."
+        tool: "rag_query"
+        args: { collection: "toy-product", query: "Paris weather today" }
+        observation: { answer: "", sources: [] }
+      - thought: "Knowledge base was empty; retry with web search instead."
+        tool: "mock_web_search"
+        args: { query: "Paris weather today" }
+        observation:
+          results:
+            - { title: "paris weather", snippet: "Sunny, 18°C" }
+  rubric:
+    # Same reasoning as tbl-018 — replay the full recovery trace.
+    inject_failure: true
+    primary_metric: "agent_judge/error_recovery"
+
+- id: tbl-020-recovery-gave-up
+  kind: agent
+  difficulty: 4
+  source: adversarial
+  capability_tags:
+    - { path: "agent/error_recovery", weight: 1.5 }
+    - { path: "agent/plan_quality", weight: 1.0 }
+  input:
+    task: "Compute 100 / 0. This is intentionally impossible — handle it gracefully."
+    max_steps: 3
+    tools: ["calc"]
+    preset_plan:
+      - tool: "calc"
+        args: { expression: "100 / 0" }
+        thought: "Division by zero — may raise."
+  expected:
+    final_answer: ""
+    trace:
+      - thought: "Division by zero — may raise."
+        tool: "calc"
+        args: { expression: "100 / 0" }
+        observation: { error: "division by zero" }
+  rubric:
+    inject_failure: true
+    fail_after_step: 0
+    primary_metric: "agent_judge/error_recovery"
+    negative_case: true  # the Agent gave up; judge should score error_recovery low

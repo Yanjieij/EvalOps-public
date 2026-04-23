@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+.env.local
+
+# Go
+/services/control-plane/bin/
+/services/control-plane/vendor/
+*.test
+*.out
+
+# Node / FE
+node_modules/
+dist/
+.vite/
+
+# Proto generated stubs are CHECKED IN (by design — see proto/README.md).
+# Week 2 switched to `buf generate`; the committed stubs guarantee that
+# `go build` and `pytest` don't require buf to be installed. CI still
+# re-runs `buf generate` and diffs the result to catch drift.
+#
+# If you need to regenerate locally:
+#   make proto-gen
+
+# Artifacts
+/runs/
+/artifacts/
+/tmp/
+*.parquet
+*.duckdb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+/logs/
+
+# HotpotQA raw downloads — regenerate via scripts/fetch-hotpotqa.sh
+/.cache/
+
+# Personal Files
+Introduction.md

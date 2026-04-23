@@ -1,0 +1,32 @@
+# buf generate config — produces Go and Python stubs for evalops.v1.
+#
+# Generated files are committed to the repo so Week 1's guarantee holds:
+# `go build` and `pytest` never require buf to be installed. CI still
+# runs `buf lint` + `buf generate` and diffs the result so drift is
+# caught automatically.
+#
+# Go output   -> services/control-plane/internal/proto/evalops/v1/
+# Python out  -> services/eval-engine/src/evalops/v1/
+#
+# Python path note: we deliberately emit at src/evalops/v1/ so protobuf's
+# own inter-file imports (`from evalops.v1 import common_pb2`) resolve
+# against the top-level `evalops` package without any rewriting. This
+# avoids needing protoletariat or sys.path hacks.
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/yanjieij/evalops/control-plane/internal/proto
+plugins:
+  - plugin: buf.build/protocolbuffers/go:v1.34.1
+    out: ../services/control-plane/internal/proto
+    opt: paths=source_relative
+  - plugin: buf.build/grpc/go:v1.4.0
+    out: ../services/control-plane/internal/proto
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false
+  - plugin: buf.build/protocolbuffers/python:v27.0
+    out: ../services/eval-engine/src
+  - plugin: buf.build/grpc/python:v1.63.0
+    out: ../services/eval-engine/src

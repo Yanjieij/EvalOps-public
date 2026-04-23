@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package evalops.v1;
+
+option go_package = "evalops/internal/proto/evalops/v1;evalopsv1";
+
+// --- Shared primitives ---------------------------------------------------
+
+// Metadata carries trace/tenant/request information through every call.
+// Always populated by the control-plane and forwarded to adapters so that
+// one evaluation run shows up as a single distributed trace.
+message Metadata {
+  string request_id = 1;   // X-Request-ID, echoed by adapters
+  string trace_id = 2;     // W3C trace parent (32-char hex)
+  string span_id = 3;
+  string run_id = 4;       // EvalOps run id
+  string case_id = 5;      // EvalOps case id (stable within a benchmark version)
+  string tenant = 6;       // future multi-tenancy
+}
+
+// Money / cost tracking per call.  Expressed in micro-USD so we can store
+// as int64 without floating-point drift.
+message Cost {
+  int64 micro_usd = 1;
+  int64 prompt_tokens = 2;
+  int64 completion_tokens = 3;
+}
+
+// A key/value pair.  Used for rubric tags, capability labels, and custom
+// attributes on a case / result.
+message KV {
+  string key = 1;
+  string value = 2;
+}
+
+// Capability taxonomy entry — referenced from Case.capability_tags.
+// EvalOps's taxonomy is a tree ("rag/faithfulness", "agent/tool_selection")
+// and we keep the encoding as a path string for simplicity.
+message CapabilityTag {
+  string path = 1;         // e.g. "rag/faithfulness"
+  float weight = 2;        // case-level weighting inside an aggregate metric
+}

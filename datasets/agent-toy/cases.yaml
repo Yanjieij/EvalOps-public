@@ -1,0 +1,59 @@
+- id: agent-toy-001-lookup-and-answer
+  kind: agent
+  difficulty: 2
+  source: synthetic
+  input:
+    task: "Look up the capital of France in the knowledge base and reply with just the city name."
+    max_steps: 4
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+  expected:
+    final_answer: "Paris"
+    trace:
+      - thought: "I need to look up France in the knowledge base."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "France capital" }
+        observation: { answer: "Paris" }
+  rubric:
+    primary_metric: "agent/tool_selection"
+
+- id: agent-toy-002-two-step-math
+  kind: agent
+  difficulty: 3
+  source: synthetic
+  input:
+    task: "The product manual says response time is 1200ms. How many per minute? Use the calculator."
+    max_steps: 4
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+  expected:
+    final_answer: "50"
+    trace:
+      - thought: "First fetch the response time from the manual."
+        tool: "rag_query"
+        args: { collection: "toy-product", query: "response time" }
+        observation: { answer: "1200 ms" }
+      - thought: "Now compute 60000 / 1200 with the calculator."
+        tool: "calc"
+        args: { expression: "60000 / 1200" }
+        observation: { result: 50 }
+  rubric:
+    primary_metric: "agent/final_f1"
+
+- id: agent-toy-003-error-recovery
+  kind: agent
+  difficulty: 4
+  source: adversarial
+  input:
+    task: "Fetch today's weather for Paris."
+    max_steps: 3
+    tools: ["mock_web_search", "calc"]
+  expected:
+    final_answer: ""
+    trace:
+      - thought: "Try the web search tool."
+        tool: "mock_web_search"
+        args: { query: "Paris weather today" }
+        observation: { error: "injected failure" }
+  rubric:
+    inject_failure: true
+    fail_after_step: 0
+    primary_metric: "agent/error_recovery"

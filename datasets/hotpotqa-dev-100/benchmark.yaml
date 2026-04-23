@@ -1,0 +1,13 @@
+name: hotpotqa-dev-100
+version: v0.1.0
+description: |
+  HotpotQA dev distractor split, first 100 entries, sliced deterministically.
+  Multi-hop QA with supporting-facts ground truth — exercises rag/f1,
+  rag/citation_recall, and the llm/faithfulness judge on real data.
+  See scripts/fetch-hotpotqa.sh to regenerate.
+taxonomy_root: rag
+labels:
+  tier: public
+  source: hotpotqa
+  split: distractor
+  size: "100"

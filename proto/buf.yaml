@@ -1,0 +1,16 @@
+version: v1
+name: buf.build/evalops/evalops
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    # Internal gRPC between control-plane and eval-engine deliberately
+    # reuses message types across RPCs (Benchmark, Run, ...). The strict
+    # Google API style of wrapping every response in FooResponse is
+    # boilerplate for an internal API we control both sides of.
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_RESPONSE_STANDARD_NAME
+breaking:
+  use:
+    - FILE

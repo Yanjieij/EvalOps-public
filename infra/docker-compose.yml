@@ -1,0 +1,101 @@
+# EvalOps local infrastructure.
+#
+# Single file on purpose — Week 1 is a dev loop, not a production deploy.
+# Ports are chosen to not collide with a companion app stack:
+#
+#   Service      | Port (host)
+#   -------------+------------
+#   Postgres     | 5452
+#   Redis        | 6389
+#   MinIO (S3)   | 9010 / 9011
+#   Jaeger UI    | 16696
+#   Jaeger OTLP  | 4327 (gRPC) / 4328 (HTTP)
+#   Prometheus   | 9091
+#   Grafana      | 3001
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: evalops-postgres
+    environment:
+      POSTGRES_USER: evalops
+      POSTGRES_PASSWORD: ${EVALOPS_POSTGRES_PASSWORD:-evalops-local-dev}
+      POSTGRES_DB: evalops
+    ports:
+      - "5452:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evalops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: evalops-redis
+    ports:
+      - "6389:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: evalops-minio
+    command: server /data --console-address ":9011"
+    environment:
+      MINIO_ROOT_USER: evalops
+      MINIO_ROOT_PASSWORD: ${EVALOPS_MINIO_ROOT_PASSWORD:-evalops-minio-local-dev}
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    volumes:
+      - minio_data:/data
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.55
+    container_name: evalops-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16696:16686"   # UI
+      - "4327:4317"     # OTLP gRPC
+      - "4328:4318"     # OTLP HTTP
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: evalops-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9091:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: evalops-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${EVALOPS_GRAFANA_ADMIN_PASSWORD:-evalops-admin-local-dev}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  minio_data:
+  grafana_data:

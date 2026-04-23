@@ -1,0 +1,27 @@
+name: tau-bench-lite
+version: v0.1.0
+description: |
+  Lightweight agent benchmark inspired by τ-bench and ToolBench. 20
+  fixture-backed tasks exercising the 4 sidecar tools (rag_query, calc,
+  file_read, mock_web_search) across the 4 evaluation dimensions
+  Agent-as-a-Judge scores: plan quality, tool selection, reasoning
+  coherence, and error recovery.
+
+  Design choices:
+
+  - Every case carries a deterministic ``preset_plan`` so the sidecar's
+    heuristic planner is bypassed. Byte-identical traces on every run
+    means the Agent-as-a-Judge scores are stable enough for release
+    gates and CI. Without this, the judge would flag spurious drift.
+  - Cases are categorized by capability tag into 6 buckets:
+    single-step lookup, multi-hop, multi-tool, file_read, unanswerable,
+    error_recovery. Each bucket is sized for enough statistical signal
+    without ballooning LiteLLM costs during Week 3 experimentation.
+  - Every case carries ``expected.trace`` too, so the MockAdapter can
+    replay them offline for regression testing without the sidecar.
+
+taxonomy_root: agent
+labels:
+  tier: public-subset
+  source: tau-bench-inspired
+  mvp_week: "3"

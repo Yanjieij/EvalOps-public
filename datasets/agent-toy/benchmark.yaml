@@ -1,0 +1,10 @@
+name: agent-toy
+version: v0.1.0
+description: |
+  Three hand-crafted Agent cases exercising tool selection, plan efficiency,
+  and error-recovery rubrics. The mock adapter synthesizes a plausible trace
+  from each case's expected trace; with `rubric.inject_failure=true` and
+  `rubric.fail_after_step=N` we can reproduce partial failures deterministically.
+taxonomy_root: agent
+labels:
+  tier: toy

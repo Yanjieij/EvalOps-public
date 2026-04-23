@@ -1,0 +1,189 @@
+# τ-bench-lite — lookup and multi-hop subset.
+#
+# Single- and two-step tool-use cases where the right answer lives in
+# the sidecar's RAG fixture. Every case ships a preset_plan that maps
+# exactly onto the tool fixture, so the sidecar produces a byte-
+# identical trace on every run. `expected.trace` mirrors the plan so
+# the MockAdapter's offline replay matches the sidecar's online run.
+
+- id: tbl-001-capital-france
+  kind: agent
+  difficulty: 1
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Look up the capital of France in the knowledge base and answer with just the city name."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-geography", query: "France capital" }
+        thought: "RAG over geography is the right collection for capitals."
+  expected:
+    final_answer: "Paris"
+    trace:
+      - thought: "RAG over geography is the right collection for capitals."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "France capital" }
+        observation: { answer: "Paris" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-002-capital-japan
+  kind: agent
+  difficulty: 1
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "What is the capital of Japan? Use the knowledge base to confirm."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-geography", query: "Japan capital" }
+        thought: "Geography collection will have national capitals."
+  expected:
+    final_answer: "Tokyo"
+    trace:
+      - thought: "Geography collection will have national capitals."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "Japan capital" }
+        observation: { answer: "Tokyo" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-003-capital-germany
+  kind: agent
+  difficulty: 1
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Which city is the capital of Germany?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-geography", query: "Germany capital" }
+        thought: "Geography knowledge base again."
+  expected:
+    final_answer: "Berlin"
+    trace:
+      - thought: "Geography knowledge base again."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "Germany capital" }
+        observation: { answer: "Berlin" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-004-largest-planet
+  kind: agent
+  difficulty: 1
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "What is the largest planet in our solar system?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-astronomy", query: "largest planet" }
+        thought: "Astronomy is its own collection in this knowledge base."
+  expected:
+    final_answer: "Jupiter"
+    trace:
+      - thought: "Astronomy is its own collection in this knowledge base."
+        tool: "rag_query"
+        args: { collection: "toy-astronomy", query: "largest planet" }
+        observation: { answer: "Jupiter" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-005-product-response-time
+  kind: agent
+  difficulty: 2
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Look up the product's response time from the product manual."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-product", query: "response time" }
+        thought: "Product manual lives in the product collection."
+  expected:
+    final_answer: "1200 ms"
+    trace:
+      - thought: "Product manual lives in the product collection."
+        tool: "rag_query"
+        args: { collection: "toy-product", query: "response time" }
+        observation: { answer: "1200 ms" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-006-product-sla
+  kind: agent
+  difficulty: 2
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "What is the monthly SLA commitment for the product?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-product", query: "sla" }
+        thought: "Look up SLA in the product knowledge base."
+  expected:
+    final_answer: "99.9% monthly uptime"
+    trace:
+      - thought: "Look up SLA in the product knowledge base."
+        tool: "rag_query"
+        args: { collection: "toy-product", query: "sla" }
+        observation: { answer: "99.9% monthly uptime" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-007-compare-two-capitals
+  kind: agent
+  difficulty: 3
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/multi_hop", weight: 1.0 }
+    - { path: "agent/plan_quality", weight: 1.0 }
+  input:
+    task: "Compare the capitals of France and Japan and report both city names."
+    max_steps: 4
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-geography", query: "France capital" }
+        thought: "Pull the French capital first."
+      - tool: "rag_query"
+        args: { collection: "toy-geography", query: "Japan capital" }
+        thought: "Now pull the Japanese capital to complete the comparison."
+  expected:
+    final_answer: "Paris and Tokyo"
+    trace:
+      - thought: "Pull the French capital first."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "France capital" }
+        observation: { answer: "Paris" }
+      - thought: "Now pull the Japanese capital to complete the comparison."
+        tool: "rag_query"
+        args: { collection: "toy-geography", query: "Japan capital" }
+        observation: { answer: "Tokyo" }
+  rubric:
+    primary_metric: "agent_judge/overall"

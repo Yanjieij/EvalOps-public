@@ -1,0 +1,175 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 0},
+      "id": 1,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(rate(evalops_runs_submitted_total[5m])) by (benchmark, sut)",
+          "legendFormat": "{{benchmark}} / {{sut}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Runs submitted / sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 0},
+      "id": 2,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "evalops_run_pass_rate",
+          "legendFormat": "{{benchmark}} / {{sut}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest pass rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "us"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 0},
+      "id": 3,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(rate(evalops_run_cost_micro_usd_total[1h])) by (benchmark, sut)",
+          "legendFormat": "{{benchmark}} / {{sut}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Run cost burn (µUSD/hr)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6},
+      "id": 4,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(rate(evalops_cp_http_requests_total[1m])) by (path, status)",
+          "legendFormat": "{{path}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Control-plane HTTP RPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 6},
+      "id": 5,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "histogram_quantile(0.95, sum(rate(evalops_cp_http_request_duration_seconds_bucket[5m])) by (le, path))",
+          "legendFormat": "p95 {{path}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Control-plane HTTP p95 latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 12},
+      "id": 6,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(rate(evalops_ee_runs_total[10m])) by (benchmark, sut, status)",
+          "legendFormat": "{{benchmark}} / {{sut}} / {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Eval-engine runs / sec (by status)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "us"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 12},
+      "id": 7,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(rate(evalops_ee_judge_cost_micro_usd_total[1h])) by (kind, model)",
+          "legendFormat": "{{kind}} / {{model}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Judge cost burn per tier (µUSD/hr)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "none", "min": -1, "max": 1}, "overrides": []},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 12},
+      "id": 8,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "evalops_ee_run_judge_agreement",
+          "legendFormat": "{{benchmark}} / {{sut}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Dual-judge Cohen's kappa",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 18},
+      "id": 9,
+      "options": {},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "histogram_quantile(0.95, sum(rate(evalops_ee_case_duration_seconds_bucket[5m])) by (le, benchmark, kind))",
+          "legendFormat": "p95 {{benchmark}} / {{kind}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Case duration p95 (by kind)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["evalops"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "EvalOps Overview",
+  "uid": "evalops-overview",
+  "version": 1,
+  "weekStart": ""
+}

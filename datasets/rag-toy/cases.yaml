@@ -1,0 +1,81 @@
+# RAG toy benchmark — rubric-driven mock-mode cases.
+# The mock adapter honours `rubric.mock_mode` so we can reproduce specific
+# failure modes deterministically on a dev box.
+
+- id: rag-toy-001-happy
+  kind: rag
+  difficulty: 1
+  source: synthetic
+  input:
+    query: "What is the capital of France?"
+    collection: "toy-geography"
+    top_k: 3
+  expected:
+    answer: "Paris"
+    aliases: ["paris", "the city of Paris"]
+    source_ids: ["doc-fr-01"]
+    sources:
+      - id: "doc-fr-01"
+        content: "France is a country in Western Europe. Its capital is Paris."
+  rubric:
+    primary_metric: "rag/f1"
+    mock_mode: faithful
+  capability_tags:
+    - path: "rag/retrieval_precision"
+    - path: "rag/faithfulness"
+
+- id: rag-toy-002-hallucinate
+  kind: rag
+  difficulty: 2
+  source: adversarial
+  input:
+    query: "What is the capital of France?"
+    collection: "toy-geography"
+  expected:
+    answer: "Paris"
+    aliases: ["paris"]
+    source_ids: ["doc-fr-01"]
+    sources:
+      - id: "doc-fr-01"
+        content: "France's capital is Paris."
+  rubric:
+    primary_metric: "rag/f1"
+    mock_mode: hallucinate
+  capability_tags:
+    - path: "rag/faithfulness"
+
+- id: rag-toy-003-unanswerable
+  kind: rag
+  difficulty: 3
+  source: adversarial
+  input:
+    query: "Who won the 2047 World Cup?"
+    collection: "toy-geography"
+  expected:
+    answer: ""
+  rubric:
+    primary_metric: "rag/unanswerable_handling"
+    expected_refusal: true
+    mock_mode: refuse
+  capability_tags:
+    - path: "rag/unanswerable_detection"
+
+- id: rag-toy-004-citation
+  kind: rag
+  difficulty: 2
+  source: synthetic
+  input:
+    query: "What is the largest planet in the solar system?"
+    collection: "toy-astronomy"
+  expected:
+    answer: "Jupiter"
+    aliases: ["jupiter"]
+    source_ids: ["doc-astro-02"]
+    sources:
+      - id: "doc-astro-02"
+        content: "Jupiter is the largest planet in the solar system."
+  rubric:
+    primary_metric: "rag/citation_recall"
+    mock_mode: faithful
+  capability_tags:
+    - path: "rag/retrieval_recall"

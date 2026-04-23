@@ -1,0 +1,202 @@
+# τ-bench-lite — multi-tool and file_read subset.
+#
+# These cases force the Agent to compose tools — RAG + calc, or
+# file_read + inline reasoning. They are the cases where the 4
+# Agent-as-a-Judge dimensions diverge the most: an Agent that picks
+# the right tool but skips the calc step still shows up with a low
+# plan_quality even though its tool_selection looks fine.
+
+- id: tbl-008-response-rate-per-minute
+  kind: agent
+  difficulty: 3
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/multi_tool", weight: 1.0 }
+    - { path: "agent/plan_quality", weight: 1.0 }
+  input:
+    task: "The product manual lists the response time in milliseconds. Convert that to requests per minute."
+    max_steps: 4
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "rag_query"
+        args: { collection: "toy-product", query: "response time" }
+        thought: "First fetch the response time in ms from the product manual."
+      - tool: "calc"
+        args: { expression: "60000 / 1200" }
+        thought: "Convert milliseconds-per-request to requests-per-minute."
+  expected:
+    final_answer: "50"
+    trace:
+      - thought: "First fetch the response time in ms from the product manual."
+        tool: "rag_query"
+        args: { collection: "toy-product", query: "response time" }
+        observation: { answer: "1200 ms" }
+      - thought: "Convert milliseconds-per-request to requests-per-minute."
+        tool: "calc"
+        args: { expression: "60000 / 1200" }
+        observation: { result: 50 }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-009-calc-only-area
+  kind: agent
+  difficulty: 2
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Compute the area of a rectangle that is 12 by 7."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "calc"
+        args: { expression: "12 * 7" }
+        thought: "Pure arithmetic; calc is the correct tool."
+  expected:
+    final_answer: "84"
+    trace:
+      - thought: "Pure arithmetic; calc is the correct tool."
+        tool: "calc"
+        args: { expression: "12 * 7" }
+        observation: { result: 84 }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-010-paris-weather
+  kind: agent
+  difficulty: 1
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "What is the weather in Paris right now?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "mock_web_search"
+        args: { query: "Paris weather today" }
+        thought: "Weather is a real-time lookup — use web search."
+  expected:
+    final_answer: "Sunny, 18°C"
+    trace:
+      - thought: "Weather is a real-time lookup — use web search."
+        tool: "mock_web_search"
+        args: { query: "Paris weather today" }
+        observation:
+          results:
+            - { title: "paris weather", snippet: "Sunny, 18°C" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-011-tokyo-weather
+  kind: agent
+  difficulty: 1
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Tell me the current weather in Tokyo."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "mock_web_search"
+        args: { query: "Tokyo weather today" }
+        thought: "Web search again for real-time weather."
+  expected:
+    final_answer: "Rainy, 22°C"
+    trace:
+      - thought: "Web search again for real-time weather."
+        tool: "mock_web_search"
+        args: { query: "Tokyo weather today" }
+        observation:
+          results:
+            - { title: "tokyo weather", snippet: "Rainy, 22°C" }
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-012-file-read-product-price
+  kind: agent
+  difficulty: 2
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Read the product specs file product-specs.md in the sandbox and report the launch price."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "file_read"
+        args: { path: "product-specs.md" }
+        thought: "file_read is the right tool when the user names a file."
+  expected:
+    final_answer: "USD 299"
+    trace:
+      - thought: "file_read is the right tool when the user names a file."
+        tool: "file_read"
+        args: { path: "product-specs.md" }
+        observation:
+          content: "Launch price: USD 299\nWeight: 420 grams"
+          exists: true
+          bytes: 44
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-013-file-read-release-feature
+  kind: agent
+  difficulty: 2
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "Open release-notes.txt from the sandbox and list one new feature in release 2.3.0."
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "file_read"
+        args: { path: "release-notes.txt" }
+        thought: "Grab release notes from the sandbox."
+  expected:
+    final_answer: "Added CSV export to the dashboard"
+    trace:
+      - thought: "Grab release notes from the sandbox."
+        tool: "file_read"
+        args: { path: "release-notes.txt" }
+        observation:
+          content: "New features:\n- Added CSV export to the dashboard.\n- Background tasks now surface progress over SSE."
+          exists: true
+          bytes: 100
+  rubric:
+    primary_metric: "agent_judge/overall"
+
+- id: tbl-014-file-read-battery
+  kind: agent
+  difficulty: 2
+  source: public:tau-bench-lite
+  capability_tags:
+    - { path: "agent/tool_selection", weight: 1.0 }
+    - { path: "agent/single_step", weight: 1.0 }
+  input:
+    task: "From the product specs file, what is the battery capacity?"
+    max_steps: 3
+    tools: ["rag_query", "calc", "file_read", "mock_web_search"]
+    preset_plan:
+      - tool: "file_read"
+        args: { path: "product-specs.md" }
+        thought: "Specs file has the hardware details."
+  expected:
+    final_answer: "4800 mAh"
+    trace:
+      - thought: "Specs file has the hardware details."
+        tool: "file_read"
+        args: { path: "product-specs.md" }
+        observation:
+          content: "Battery: 4800 mAh lithium-ion"
+          exists: true
+          bytes: 32
+  rubric:
+    primary_metric: "agent_judge/overall"

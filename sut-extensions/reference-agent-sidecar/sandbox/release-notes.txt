@@ -1,0 +1,9 @@
+Release 2.3.0 — 2026-03-15
+Bug fixes:
+- Fixed a race condition in the billing worker.
+- Corrected the timezone offset on daily reports.
+Breaking changes:
+- API field `deprecated_flag` has been removed.
+New features:
+- Added CSV export to the dashboard.
+- Background tasks now surface progress over SSE.

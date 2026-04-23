@@ -1,0 +1,12 @@
+name: rag-toy
+version: v0.1.0
+description: |
+  Eight hand-crafted RAG cases covering happy path, hallucination injection,
+  unanswerable detection, citation recall, and multi-hop. The point is to
+  exercise every rule-judge metric on a 5-second smoke run, not to be
+  statistically meaningful. Real evaluation comes from the public + synthetic
+  +  harvest corpora in Week 2/3.
+taxonomy_root: rag
+labels:
+  tier: toy
+  cycle-time-target: "5s"

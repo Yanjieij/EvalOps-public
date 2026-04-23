@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package evalops.v1;
+
+option go_package = "evalops/internal/proto/evalops/v1;evalopsv1";
+
+import "evalops/v1/common.proto";
+
+// DatasetService manages benchmarks, their versions, and individual cases.
+// All mutating operations are idempotent — re-submitting the same (name,
+// version) combination is a no-op, which matters because datasets land in
+// CI pipelines.
+service DatasetService {
+  rpc CreateBenchmark(CreateBenchmarkRequest) returns (Benchmark);
+  rpc GetBenchmark(GetBenchmarkRequest) returns (Benchmark);
+  rpc ListBenchmarks(ListBenchmarksRequest) returns (ListBenchmarksResponse);
+  rpc AddCases(AddCasesRequest) returns (AddCasesResponse);
+  rpc ListCases(ListCasesRequest) returns (ListCasesResponse);
+}
+
+// --- Benchmark -----------------------------------------------------------
+
+message Benchmark {
+  string id = 1;
+  string name = 2;                    // "rag-enterprise"
+  string version = 3;                 // semver: "v0.1.0"
+  string description = 4;
+  string taxonomy_root = 5;           // capability tree root, e.g. "rag"
+  int32 case_count = 6;
+  int64 created_at_unix = 7;
+  repeated KV labels = 8;             // free-form metadata
+}
+
+message CreateBenchmarkRequest {
+  Metadata metadata = 1;
+  Benchmark benchmark = 2;
+}
+
+message GetBenchmarkRequest {
+  Metadata metadata = 1;
+  string name = 2;
+  string version = 3;                 // optional; defaults to latest
+}
+
+message ListBenchmarksRequest {
+  Metadata metadata = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListBenchmarksResponse {
+  repeated Benchmark benchmarks = 1;
+  string next_page_token = 2;
+}
+
+// --- Case ----------------------------------------------------------------
+
+// CaseKind determines which SUT surface this case targets and which rubric
+// fields are expected.  Hybrid = multi-surface (e.g. Agent that uses RAG).
+enum CaseKind {
+  CASE_KIND_UNSPECIFIED = 0;
+  CASE_KIND_RAG = 1;
+  CASE_KIND_AGENT = 2;
+  CASE_KIND_CHAT = 3;
+  CASE_KIND_HYBRID = 4;
+}
+
+// A single evaluation case.
+// - `input` is whatever the adapter needs to call the SUT (JSON-encoded).
+// - `expected` holds ground truth in a structured form (JSON-encoded).
+// - `rubric` is a JSON blob consumed by the judge engine.
+message Case {
+  string id = 1;                      // stable within a benchmark version
+  string benchmark_id = 2;
+  CaseKind kind = 3;
+  string input_json = 4;
+  string expected_json = 5;
+  string rubric_json = 6;
+  repeated CapabilityTag capability_tags = 7;
+  int32 difficulty = 8;               // 1..5
+  string source = 9;                  // "public:hotpotqa" | "synthetic" | "harvest" | "adversarial"
+  repeated KV labels = 10;
+}
+
+message AddCasesRequest {
+  Metadata metadata = 1;
+  string benchmark_id = 2;
+  repeated Case cases = 3;
+}
+
+message AddCasesResponse {
+  int32 added = 1;
+  int32 skipped_duplicate = 2;
+}
+
+message ListCasesRequest {
+  Metadata metadata = 1;
+  string benchmark_id = 2;
+  CaseKind kind_filter = 3;           // optional; UNSPECIFIED = all
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListCasesResponse {
+  repeated Case cases = 1;
+  string next_page_token = 2;
+}

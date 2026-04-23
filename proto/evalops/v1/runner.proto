@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package evalops.v1;
+
+option go_package = "evalops/internal/proto/evalops/v1;evalopsv1";
+
+import "evalops/v1/common.proto";
+import "evalops/v1/judge.proto";
+
+// RunnerService is the orchestration surface.  It owns the lifecycle of a
+// Run: submit -> enqueue -> stream progress -> finalize -> publish metrics.
+// The control-plane calls the eval-engine via this service.
+service RunnerService {
+  rpc SubmitRun(SubmitRunRequest) returns (Run);
+  rpc GetRun(GetRunRequest) returns (Run);
+  rpc StreamRunEvents(StreamRunEventsRequest) returns (stream RunEvent);
+  rpc CancelRun(CancelRunRequest) returns (Run);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+}
+
+// --- SUT (System Under Test) --------------------------------------------
+
+enum SutKind {
+  SUT_KIND_UNSPECIFIED = 0;
+  SUT_KIND_HTTP = 1;                  // generic HTTP adapter
+  SUT_KIND_GRPC = 2;                  // generic gRPC adapter
+  SUT_KIND_OPENAI_COMPAT = 3;         // /v1/chat/completions compatible
+  SUT_KIND_REFERENCE = 4;             // first-class adapter for the sample enterprise SUT
+  SUT_KIND_MOCK = 5;                  // in-process mock, used for smoke tests + CI
+}
+
+message Sut {
+  string id = 1;
+  string name = 2;                    // "reference-main", "reference-pr-1234"
+  SutKind kind = 3;
+  string endpoint = 4;                // URL or host:port depending on kind
+  string version_label = 5;           // git SHA or semver of the SUT
+  repeated KV auth = 6;               // flat key/value auth config (env-resolved at runtime)
+  repeated KV capabilities = 7;       // advertised surfaces: chat, rag, agent
+}
+
+// --- Run lifecycle ------------------------------------------------------
+
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  RUN_STATUS_PENDING = 1;
+  RUN_STATUS_RUNNING = 2;
+  RUN_STATUS_SUCCEEDED = 3;
+  RUN_STATUS_FAILED = 4;
+  RUN_STATUS_CANCELLED = 5;
+  RUN_STATUS_PARTIAL = 6;             // some cases failed; distinct from FAILED
+}
+
+// Run is the unit of experiment — (benchmark, sut, judge_config) plus a
+// concurrency knob.  A single Run produces N results where N == len(cases).
+message Run {
+  string id = 1;
+  string benchmark_id = 2;
+  string benchmark_version = 3;
+  string sut_id = 4;
+  string judge_config_id = 5;
+  RunStatus status = 6;
+  int64 started_at_unix = 7;
+  int64 finished_at_unix = 8;
+  int32 total_cases = 9;
+  int32 completed_cases = 10;
+  int32 failed_cases = 11;
+  RunSummary summary = 12;
+  string idempotency_key = 13;        // dedupes resubmission (e.g. CI retries)
+}
+
+// Aggregate metrics over a Run — flattened for easy dashboarding.
+message RunSummary {
+  map<string, float> metrics = 1;     // "rag/faithfulness" -> 0.83
+  Cost total_cost = 2;
+  float pass_rate = 3;
+  float judge_agreement = 4;          // dual-judge Cohen's kappa when applicable
+  int32 unstable_cases = 5;           // cases flagged unstable by self-consistency
+}
+
+message SubmitRunRequest {
+  Metadata metadata = 1;
+  string benchmark_id = 2;
+  string benchmark_version = 3;
+  Sut sut = 4;                        // inline so we don't need pre-registration for ad-hoc runs
+  JudgeConfig judge_config = 5;
+  int32 concurrency = 6;              // SUT call parallelism
+  int32 max_cases = 7;                // 0 = all
+  string idempotency_key = 8;
+}
+
+message GetRunRequest {
+  Metadata metadata = 1;
+  string run_id = 2;
+}
+
+message CancelRunRequest {
+  Metadata metadata = 1;
+  string run_id = 2;
+}
+
+message ListRunsRequest {
+  Metadata metadata = 1;
+  string benchmark_id = 2;
+  string sut_id = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListRunsResponse {
+  repeated Run runs = 1;
+  string next_page_token = 2;
+}
+
+// --- Streaming events ---------------------------------------------------
+
+message StreamRunEventsRequest {
+  Metadata metadata = 1;
+  string run_id = 2;
+  bool include_case_events = 3;       // true = per-case updates, false = aggregates only
+}
+
+// RunEvent is what a live dashboard subscribes to.  The payload is a tagged
+// union so a single stream covers progress heartbeats, per-case outcomes,
+// and final summary.
+message RunEvent {
+  string run_id = 1;
+  int64 ts_unix = 2;
+  oneof payload {
+    ProgressHeartbeat heartbeat = 3;
+    CaseCompleted case_completed = 4;
+    RunFinished run_finished = 5;
+    RunFailed run_failed = 6;
+  }
+}
+
+message ProgressHeartbeat {
+  int32 completed = 1;
+  int32 total = 2;
+  float pass_rate_so_far = 3;
+  Cost cost_so_far = 4;
+}
+
+message CaseCompleted {
+  string case_id = 1;
+  bool passed = 2;
+  repeated MetricScore metrics = 3;
+  Cost cost = 4;
+  int64 latency_ms = 5;
+  string error = 6;                   // non-empty iff the SUT call or judge errored
+}
+
+message RunFinished {
+  RunSummary summary = 1;
+}
+
+message RunFailed {
+  string error = 1;
+}

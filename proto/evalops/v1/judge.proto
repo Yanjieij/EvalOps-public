@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package evalops.v1;
+
+option go_package = "evalops/internal/proto/evalops/v1;evalopsv1";
+
+import "evalops/v1/common.proto";
+
+// JudgeService runs rule, LLM-as-a-Judge, and Agent-as-a-Judge scoring on
+// (case, sut_output) pairs.  It is a stateless service: the control-plane
+// owns persistence and feeds the judge a self-contained ScoreRequest.
+//
+// The hybrid pipeline (rule -> LLM -> Agent) is implemented server-side so
+// the control-plane only has to pick a JudgeConfig and send one request.
+service JudgeService {
+  rpc Score(ScoreRequest) returns (ScoreResponse);
+  rpc ScoreBatch(ScoreBatchRequest) returns (ScoreBatchResponse);
+  rpc ListJudgeKinds(ListJudgeKindsRequest) returns (ListJudgeKindsResponse);
+}
+
+// --- Judge kinds ---------------------------------------------------------
+
+enum JudgeKind {
+  JUDGE_KIND_UNSPECIFIED = 0;
+  JUDGE_KIND_RULE = 1;                // deterministic string / numeric metrics
+  JUDGE_KIND_LLM_SINGLE = 2;          // single-model single-score
+  JUDGE_KIND_LLM_PAIRWISE = 3;        // pairwise preference against a baseline
+  JUDGE_KIND_LLM_DUAL = 4;            // two different LLMs, compute Cohen's kappa (our "human-free" agreement proxy)
+  JUDGE_KIND_AGENT_TRACE = 5;         // Agent-as-a-Judge audits a multi-step action trace
+  JUDGE_KIND_HYBRID = 6;              // rule -> LLM -> agent funnel
+}
+
+// JudgeConfig describes a named, content-addressed configuration.  Two
+// configs with the same hash are guaranteed to produce the same score
+// distribution (modulo LLM non-determinism at temperature > 0).
+message JudgeConfig {
+  string id = 1;
+  string name = 2;                    // human label, e.g. "rag-hybrid-gpt4o"
+  JudgeKind kind = 3;
+  string rubric_json = 4;             // rubric template + metric list
+  string model = 5;                   // "gpt-4o-2024-08-06", "claude-3-5-sonnet-20240620"
+  string baseline_model = 6;          // for LLM_PAIRWISE, LLM_DUAL
+  float temperature = 7;
+  int32 max_tokens = 8;
+  int32 repeats = 9;                  // self-consistency repeats
+  string hash = 10;                   // sha256 over the deterministic fields
+}
+
+// --- Score request / response -------------------------------------------
+
+// A judge receives the (case, output) pair plus optional supporting context
+// (e.g. the tool trace for Agent-as-a-Judge).
+message ScoreRequest {
+  Metadata metadata = 1;
+  JudgeConfig config = 2;
+  string case_json = 3;               // full case payload incl. expected + rubric
+  string sut_output_json = 4;         // serialized SutOutput from Runner
+}
+
+message MetricScore {
+  string name = 1;                    // "faithfulness", "plan_quality", ...
+  float value = 2;                    // 0..1
+  float confidence = 3;               // 0..1, judge self-reported or derived
+  string rationale = 4;               // short natural-language explanation
+}
+
+message ScoreResponse {
+  Metadata metadata = 1;
+  repeated MetricScore metrics = 2;
+  Cost cost = 3;
+  string judge_trace_json = 4;        // full audit trail (raw judge responses, pairwise swaps, etc.)
+  bool unstable = 5;                  // true if repeats disagreed beyond threshold
+}
+
+message ScoreBatchRequest {
+  repeated ScoreRequest requests = 1;
+  int32 concurrency = 2;
+}
+
+message ScoreBatchResponse {
+  repeated ScoreResponse responses = 1;
+}
+
+message ListJudgeKindsRequest {}
+message ListJudgeKindsResponse {
+  repeated JudgeKind kinds = 1;
+}

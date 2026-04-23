@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # EvalOps control-plane — runs on the host, reachable via host.docker.internal
+  - job_name: evalops-control-plane
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8090"]
+        labels:
+          service: control-plane
+          env: local
+
+  # EvalOps eval-engine — Prometheus client runs on a host port when
+  # EVALOPS_PROMETHEUS_PORT is set. Defaults to 9100 for local dev.
+  - job_name: evalops-eval-engine
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:9100"]
+        labels:
+          service: eval-engine
+          env: local
