@@ -28,4 +28,4 @@ def build_adapter(sut: Sut) -> SutAdapter:
     return cls(sut)
 
 
-__all__ = ["ReferenceAdapter", "MockAdapter", "SutAdapter", "build_adapter"]
+__all__ = ["MockAdapter", "ReferenceAdapter", "SutAdapter", "build_adapter"]
