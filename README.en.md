@@ -37,6 +37,7 @@ EvalOps adds observability and regression to evaluation: every run emits OpenTel
 ## Architecture
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart TB
     User["User / CI / Release Gate"]
     CLI["evalops CLI<br/>run / report / show-benchmark"]
@@ -72,6 +73,7 @@ flowchart TB
 Core data flow for one evaluation run:
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 sequenceDiagram
     autonumber
     participant Caller as CLI / Control Plane
@@ -153,6 +155,7 @@ Each dimension gets a 0-1 score plus rationale. `agent_judge/overall` is the wei
 ### Hybrid Judge - Cost-Aware Escalation
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart TD
     Start["case + SutOutput"] --> Rule["RuleJudge<br/>deterministic metrics, always first"]
     Rule --> MergeRule["keep rule metrics<br/>write rule_trace"]
@@ -180,6 +183,7 @@ Escalation is configurable. For example, RAG cases escalate to the LLM tier when
 ## Observability
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart LR
     subgraph "Runtime"
         CP["Go control plane<br/>/healthz /readyz /metrics"]
@@ -228,6 +232,7 @@ Entry points: Grafana `:3001` (admin/admin), Prometheus `:9091`, Jaeger `:16696`
 Systems Under Test can be integrated in three ways:
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart TB
     Case["Case<br/>kind: rag / chat / agent"] --> Adapter{"build_adapter(sut)"}
     Adapter --> Mock["MockAdapter<br/>deterministic in-memory output"]

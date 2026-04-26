@@ -37,6 +37,7 @@ EvalOps 给评测加了可观测和回归：每次 run 发 OpenTelemetry span、
 ## 架构
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart TB
     User["使用者 / CI / Release Gate"]
     CLI["evalops CLI<br/>run / report / show-benchmark"]
@@ -72,6 +73,7 @@ flowchart TB
 一次评测 run 的核心数据流：
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 sequenceDiagram
     autonumber
     participant Caller as CLI / 控制平面
@@ -153,6 +155,7 @@ AgentJudge 把 Agent 的完整 ReAct trace（每一步 thought / action / observ
 ### Hybrid Judge — 按成本升级
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart TD
     Start["case + SutOutput"] --> Rule["RuleJudge<br/>确定性指标，永远先跑"]
     Rule --> MergeRule["保留 rule metrics<br/>写入 rule_trace"]
@@ -180,6 +183,7 @@ flowchart TD
 ## 可观测
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart LR
     subgraph "运行时"
         CP["Go 控制平面<br/>/healthz /readyz /metrics"]
@@ -228,6 +232,7 @@ flowchart LR
 被测系统（System Under Test）有三种方式：
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "transparent", "primaryColor": "#161b22", "primaryTextColor": "#e6edf3", "primaryBorderColor": "#58a6ff", "lineColor": "#8b949e", "secondaryColor": "#0d1117", "tertiaryColor": "#21262d", "clusterBkg": "#0d1117", "clusterBorder": "#30363d", "edgeLabelBackground": "#0d1117", "fontFamily": "Arial, sans-serif", "actorBkg": "#161b22", "actorBorder": "#58a6ff", "actorTextColor": "#e6edf3", "signalColor": "#8b949e", "signalTextColor": "#e6edf3", "noteBkgColor": "#21262d", "noteTextColor": "#e6edf3", "activationBkgColor": "#1f6feb", "activationBorderColor": "#58a6ff"}}}%%
 flowchart TB
     Case["Case<br/>kind: rag / chat / agent"] --> Adapter{"build_adapter(sut)"}
     Adapter --> Mock["MockAdapter<br/>内存确定性输出"]
