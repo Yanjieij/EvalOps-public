@@ -36,20 +36,71 @@ EvalOps 给评测加了可观测和回归：每次 run 发 OpenTelemetry span、
 
 ## 架构
 
+```mermaid
+flowchart TB
+    User["使用者 / CI / Release Gate"]
+    CLI["evalops CLI<br/>run / report / show-benchmark"]
+    Web["React 前端<br/>Vite + Ant Design :5180"]
+    CP["Go 控制平面<br/>Gin + zerolog :8090"]
+    Proto["Protocol Buffers<br/>evalops.v1 + buf 生成 stub"]
+    Engine["Python 评测引擎<br/>RunnerEngine + anyio"]
+
+    Datasets[("Benchmark YAML<br/>rag / agent / chat cases")]
+    RunJSON[("Run JSON<br/>结果、成本、指标、trace 摘要")]
+    SUT["被测系统 SUT<br/>Mock / Reference HTTP / Agent sidecar"]
+    Judges["Judge 体系<br/>Rule / LLM / Agent / Hybrid"]
+    Obs["可观测栈<br/>Prometheus + Grafana + Jaeger"]
+    Models["Judge 模型<br/>LiteLLM providers / StubClient"]
+
+    User --> CLI
+    User --> Web
+    Web -- "REST /api/v1/runs" --> CP
+    CP -- "gRPC evalops.v1" --> Engine
+    Proto -. "契约" .- CP
+    Proto -. "契约" .- Engine
+    CLI -- "本地进程内调用" --> Engine
+    Datasets --> Engine
+    Engine -- "并发调用 case" --> SUT
+    Engine --> Judges
+    Judges -- "必要时调用" --> Models
+    Engine --> RunJSON
+    Engine -- "span / metrics" --> Obs
+    CP -- "HTTP metrics" --> Obs
+    CLI -- "report" --> RunJSON
 ```
-React 前端 (Vite + Ant Design) ──REST──→ Go 控制平面 (Gin) ──gRPC──→ Python 评测引擎
-  :5180                                        :8090                           │
-                                                                           RunnerEngine
-                                                                               │
-                                                      ┌────────────────────────┼────────────────────────┐
-                                                      ▼                        ▼                        ▼
-                                                  RuleJudge                LLMJudge                AgentJudge
-                                                  (免费、确定)             (中等成本)              (最贵、最深)
-                                                      │                        │                        │
-                                                      └────────────────────────┼────────────────────────┘
-                                                                               ▼
-                                                                          HybridJudge
-                                                                      (按成本自动升级)
+
+一次评测 run 的核心数据流：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Caller as CLI / 控制平面
+    participant Loader as Dataset Loader
+    participant Runner as RunnerEngine
+    participant Adapter as SUT Adapter
+    participant SUT as Mock / Reference / Sidecar
+    participant Judge as Judge
+    participant Obs as Metrics / Tracing
+    participant Report as Run JSON / Report
+
+    Caller->>Loader: 读取 benchmark.yaml + cases.yaml
+    Loader-->>Caller: Benchmark + Case 列表
+    Caller->>Runner: benchmark, sut, judge_config, concurrency, resume_from
+    Runner->>Obs: record_run_start + run_span
+    loop 对 pending cases 并发执行
+        Runner->>Obs: case_span(run_id, case_id, kind)
+        Runner->>Adapter: call(case, metadata)
+        Adapter->>SUT: HTTP / in-memory call<br/>注入 X-EvalOps-Run-Id、Case-Id
+        SUT-->>Adapter: answer / sources / agent_trace / usage
+        Adapter-->>Runner: SutOutput
+        Runner->>Judge: score(case, SutOutput, metadata)
+        Judge-->>Runner: JudgeResult(metrics, cost, trace, unstable)
+        Runner->>Obs: record_case_done
+    end
+    Runner->>Runner: derive_passed + summarize<br/>pass_rate / cost / avg metrics / judge_agreement
+    Runner->>Obs: record_run_finish + judge cost
+    Runner-->>Report: 写入 Run JSON
+    Caller->>Report: evalops report 渲染 Rich 表格
 ```
 
 三种语言：Go（控制平面，Gin + zerolog）、Python 3.12（评测引擎，anyio + structlog + LiteLLM）、TypeScript（前端，Vite + React + Ant Design）。服务间用 gRPC 通信，Protocol Buffers 定义契约，buf 生成 stub。
@@ -101,8 +152,25 @@ AgentJudge 把 Agent 的完整 ReAct trace（每一步 thought / action / observ
 
 ### Hybrid Judge — 按成本升级
 
-```
-Rule（默认全跑）→ 条件判断 → LLM → 条件判断 → Agent
+```mermaid
+flowchart TD
+    Start["case + SutOutput"] --> Rule["RuleJudge<br/>确定性指标，永远先跑"]
+    Rule --> MergeRule["保留 rule metrics<br/>写入 rule_trace"]
+    MergeRule --> Kind{"case.kind / rubric / rule 结果"}
+
+    Kind -->|RAG / Chat 且<br/>faithfulness_lite 低于阈值<br/>或 citation_recall 低于阈值<br/>或 always_llm| LLM["LLMJudge<br/>single / pairwise / dual"]
+    Kind -->|Agent case<br/>或 always_agent_judge| Agent["AgentJudge<br/>四维 trace 审计"]
+    Kind -->|规则足够确定| Done["返回 JudgeResult"]
+
+    LLM --> MergeLLM["追加 LLM metrics<br/>累加 cost / unstable"]
+    MergeLLM --> AgentCheck{"还需要 Agent 层？"}
+    AgentCheck -->|是| Agent
+    AgentCheck -->|否| Done
+
+    Agent --> MergeAgent["追加 agent_judge/* metrics<br/>记录 agent_trace"]
+    MergeAgent --> Done
+
+    Done --> Trace["judge_trace.escalations<br/>rule / llm / agent"]
 ```
 
 升级条件可配置。比如 RAG case 在 `faithfulness_lite < 0.7` 或 `citation_recall < 0.5` 时升级到 LLM 层；Agent case 始终触发 Agent-as-a-Judge。LLM/Agent judge 只在第一条需要升级的 case 上才实例化，只跑 rule 的 run 不会触发 LiteLLM import。
@@ -110,6 +178,36 @@ Rule（默认全跑）→ 条件判断 → LLM → 条件判断 → Agent
 ---
 
 ## 可观测
+
+```mermaid
+flowchart LR
+    subgraph "运行时"
+        CP["Go 控制平面<br/>/healthz /readyz /metrics"]
+        EE["Python 评测引擎<br/>RunnerEngine"]
+        Adapter["ReferenceAdapter<br/>关联头注入"]
+        SUT["Reference SUT / Agent sidecar"]
+    end
+
+    subgraph "指标"
+        CPM["evalops_cp_*<br/>HTTP RPS / latency / run submitted"]
+        EEM["evalops_ee_*<br/>run count / pass rate / cost / case latency"]
+        Prom["Prometheus :9091"]
+        Grafana["Grafana :3001<br/>EvalOps Overview"]
+    end
+
+    subgraph "链路"
+        RunSpan["run_span"]
+        CaseSpan["case_span"]
+        Jaeger["Jaeger :16696"]
+    end
+
+    CP --> CPM --> Prom --> Grafana
+    EE --> EEM --> Prom
+    EE --> RunSpan --> Jaeger
+    EE --> CaseSpan --> Jaeger
+    EE --> Adapter --> SUT
+    Adapter -. "X-Request-ID<br/>X-EvalOps-Run-Id<br/>X-EvalOps-Case-Id" .-> SUT
+```
 
 所有内容本地运行（`make infra-up`），不依赖远程基础设施。
 
@@ -128,6 +226,25 @@ Rule（默认全跑）→ 条件判断 → LLM → 条件判断 → Agent
 ## SUT 接入
 
 被测系统（System Under Test）有三种方式：
+
+```mermaid
+flowchart TB
+    Case["Case<br/>kind: rag / chat / agent"] --> Adapter{"build_adapter(sut)"}
+    Adapter --> Mock["MockAdapter<br/>内存确定性输出"]
+    Adapter --> Ref["ReferenceAdapter<br/>HTTP + auth + 关联头"]
+
+    Ref --> RAG["RAG<br/>POST /api/v1/knowledge/query<br/>返回 answer + sources + usage"]
+    Ref --> Chat["Chat<br/>POST /api/v1/chat/sync<br/>返回 message + sources + usage"]
+    Ref --> Agent["Agent<br/>POST /api/v1/agent/run<br/>返回 final_answer + ReAct trace"]
+
+    Agent --> Sidecar["Agent sidecar<br/>FastAPI + ReAct executor + tools"]
+
+    Mock --> Output["SutOutput<br/>answer / sources / agent_trace / cost / raw"]
+    RAG --> Output
+    Chat --> Output
+    Sidecar --> Output
+    Output --> Judge["Judge 读取统一输出<br/>Rule / LLM / Agent / Hybrid"]
+```
 
 | 适配器 | 何时用 |
 |--------|--------|
